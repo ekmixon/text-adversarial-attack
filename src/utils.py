@@ -54,7 +54,7 @@ def load_checkpoints(args):
     else:
         adv_log_coeffs, clean_texts, adv_texts = [], [], []
     clean_logits, adv_logits, times, labels = [], [], [], []
-    
+
     for i in tqdm(range(args.start_index, args.end_index, args.num_samples)):
         output_file = get_output_file(args, args.surrogate_model, i, i + args.num_samples)
         output_file = os.path.join(args.adv_samples_folder, output_file)
@@ -76,7 +76,7 @@ def load_checkpoints(args):
                 clean_texts += checkpoint['clean_texts']
                 adv_texts += checkpoint['adv_texts']
         else:
-            print('Skipping %s' % output_file)
+            print(f'Skipping {output_file}')
     clean_logits = torch.cat(clean_logits, 0)
     adv_logits = torch.cat(adv_logits, 0)
     return clean_texts, adv_texts, clean_logits, adv_logits, adv_log_coeffs, labels, times

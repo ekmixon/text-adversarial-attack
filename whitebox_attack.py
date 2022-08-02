@@ -41,8 +41,7 @@ def bert_score(refs, cands, weights=None):
     cosines = refs_norm @ cands_norm.transpose(1, 2)
     # remove first and last tokens; only works when refs and cands all have equal length (!!!)
     cosines = cosines[:, 1:-1, 1:-1]
-    R = cosines.max(-1)[0].sum(1)
-    return R
+    return cosines.max(-1)[0].sum(1)
 
 
 def log_perplexity(logits, coeffs):

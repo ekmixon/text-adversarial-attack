@@ -81,9 +81,7 @@ def main(params):
     # Loading data
     dataset, num_labels = load_data(params)
     dataset = dataset["train"]
-    text_key = 'text'
-    if params.dataset == "dbpedia14":
-        text_key = 'content'
+    text_key = 'content' if params.dataset == "dbpedia14" else 'text'
     print(f"Loaded dataset {params.dataset}, that has {len(dataset)} rows")
 
     # Load model and tokenizer from HuggingFace
@@ -119,7 +117,11 @@ def main(params):
         current_label = -1
         if params.targeted:
             current_label = dataset[start_index]['label']
-            assert all([dataset[i]['label'] == current_label for i in range(start_index, end_index)])
+            assert all(
+                dataset[i]['label'] == current_label
+                for i in range(start_index, end_index)
+            )
+
         attack = build_attack(model_wrapper, current_label)
     elif params.attack == "bae":
         print(f"Building BAE method with threshold={params.bae_threshold:.2f}")
@@ -186,7 +188,7 @@ def main(params):
         "avg_similarity": sum(similarities) / len(similarities),
         "similarities": similarities,
     }
-    print("__logs:" + json.dumps(logs))
+    print(f"__logs:{json.dumps(logs)}")
     if params.target_dir is not None:
         f.close()
 
@@ -198,7 +200,7 @@ if __name__ == "__main__":
     params = parser.parse_args()
     # if not params.radioactive:
     #     assert params.ckpt is not None, "Should specify --ckpt if not radioactive."
-    assert not (params.radioactive and not params.targeted), "Radioactive means targeted"
+    assert not params.radioactive or params.targeted, "Radioactive means targeted"
 
     # Run main code
     begin_time = time.time()

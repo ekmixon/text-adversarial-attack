@@ -27,9 +27,9 @@ def compute_metrics(eval_pred):
     }
 
 def main(args):
-    
+
     dataset, num_labels = load_data(args)
-        
+
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=True)
     model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=num_labels)
     if args.model == 'gpt2':
@@ -68,7 +68,7 @@ def main(args):
         tokenizer=tokenizer,
         compute_metrics=compute_metrics,
     )
-    
+
     if not args.finetune:
         # freeze parameters of transformer
         transformer = list(model.children())[0]
@@ -80,8 +80,13 @@ def main(args):
     suffix = ''
     if args.finetune:
         suffix += '_finetune'
-    torch.save(model.state_dict(),
-               os.path.join(args.result_folder, "%s_%s%s.pth" % (args.model.replace('/', '-'), args.dataset, suffix)))
+    torch.save(
+        model.state_dict(),
+        os.path.join(
+            args.result_folder,
+            f"{args.model.replace('/', '-')}_{args.dataset}{suffix}.pth",
+        ),
+    )
 
 
 if __name__ == "__main__":

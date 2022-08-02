@@ -39,18 +39,30 @@ def evaluate(model, tokenizer, testset, text_key=None, batch_size=10, pretrained
             examples = testset[lower:upper]
             y = torch.LongTensor(examples['label'])
             if text_key is None:
-                if pretrained:
-                    x = tokenizer(examples['premise'], examples['hypothesis'], padding='max_length',
-                                  max_length=256, truncation=True, return_tensors='pt')
-                else:
-                    x = tokenizer(examples['premise'], examples['hypothesis'], padding=True,
-                                  truncation=True, return_tensors='pt')
+                x = (
+                    tokenizer(
+                        examples['premise'],
+                        examples['hypothesis'],
+                        padding='max_length',
+                        max_length=256,
+                        truncation=True,
+                        return_tensors='pt',
+                    )
+                    if pretrained
+                    else tokenizer(
+                        examples['premise'],
+                        examples['hypothesis'],
+                        padding=True,
+                        truncation=True,
+                        return_tensors='pt',
+                    )
+                )
+
+            elif pretrained:
+                x = tokenizer(examples[text_key], padding='max_length', max_length=256,
+                              truncation=True, return_tensors='pt')
             else:
-                if pretrained:
-                    x = tokenizer(examples[text_key], padding='max_length', max_length=256,
-                                  truncation=True, return_tensors='pt')
-                else:
-                    x = tokenizer(examples[text_key], padding=True, truncation=True, return_tensors='pt')
+                x = tokenizer(examples[text_key], padding=True, truncation=True, return_tensors='pt')
             preds = model(input_ids=x['input_ids'].cuda(), attention_mask=x['attention_mask'].cuda(),
                           token_type_ids=(x['token_type_ids'].cuda() if 'token_type_ids' in x else None)).logits.cpu()
             if label_perm is not None:
@@ -65,8 +77,7 @@ class TokenDataset(Dataset):
         self.encodings = encodings
 
     def __getitem__(self, idx):
-        item = {key: val[idx] for key, val in self.encodings.items()}
-        return item
+        return {key: val[idx] for key, val in self.encodings.items()}
 
     def __len__(self):
         return len(self.encodings['label'])
@@ -90,15 +101,16 @@ def evaluate_adv_samples(model, tokenizer, tokenizer_surr, adv_log_coeffs, clean
                 log_coeffs = adv_log_coeffs['hypothesis'][i].cuda().unsqueeze(0).repeat(gumbel_batch_size, 1, 1)
             else:
                 log_coeffs = adv_log_coeffs[i].cuda().unsqueeze(0).repeat(gumbel_batch_size, 1, 1)
-            adv_ids = []
-
             # Batch sampling of adv_ids
             num_batches = int(math.ceil(gumbel_samples / gumbel_batch_size))
-            for j in range(num_batches):
-                adv_ids.append(F.gumbel_softmax(log_coeffs, hard=True).argmax(-1))
+            adv_ids = [
+                F.gumbel_softmax(log_coeffs, hard=True).argmax(-1)
+                for _ in range(num_batches)
+            ]
+
             adv_ids = torch.cat(adv_ids, 0)[:gumbel_samples]
             evalset = {}
-            
+
             text_key = None
             sentences = [tokenizer_surr.decode(adv_id) for adv_id in adv_ids]
             if attack_target == 'premise':
@@ -126,7 +138,7 @@ def evaluate_adv_samples(model, tokenizer, tokenizer_surr, adv_log_coeffs, clean
             all_corr.append(corr.unsqueeze(0))
             if (i+1) % print_every == 0:
                 print('Adversarial accuracy = %.4f' % torch.cat(all_corr, 0).float().mean(1).eq(1).float().mean())
-    
+
     all_corr = torch.cat(all_corr, 0)
     _, min_index = all_corr.float().cummin(1)
     embed = hub.load("https://tfhub.dev/google/universal-sentence-encoder/4")
@@ -142,7 +154,7 @@ def evaluate_adv_samples(model, tokenizer, tokenizer_surr, adv_log_coeffs, clean
     adv_embeddings = embed(adv_texts)
     cosine_sim = tf.reduce_mean(tf.reduce_sum(clean_embeddings * adv_embeddings, axis=1))
     print('Cosine similarity = %.4f' % cosine_sim)
-                
+
     return all_sentences, all_corr, cosine_sim
 
 
